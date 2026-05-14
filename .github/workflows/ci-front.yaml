@@ -25,7 +25,7 @@ jobs:
         node-version: 18
     # 3) Hacemos el build
     - name: Build
-      working-directory: ./code/hangman-api
+      working-directory: ./code/hangman-front
       run: |
         npm ci
         npm run build --if-present
