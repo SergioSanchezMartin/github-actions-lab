@@ -43,7 +43,7 @@ jobs:
         with:
           node-version: 18
       - name: Unit tests
-        working-directory: ./code/hangman-api
+        working-directory: ./code/hangman-front
         run: |
           npm ci
           npm run test
