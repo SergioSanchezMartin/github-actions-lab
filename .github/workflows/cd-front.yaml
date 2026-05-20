@@ -16,3 +16,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./code/hangman-front
+          push: true
+          tags: SergioSanchezMartin/hangman-front:latest
+          file: ./code/hangman-front/Dockerfile
