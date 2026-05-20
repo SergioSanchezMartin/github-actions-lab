@@ -1,8 +1,6 @@
 name: Cypress E2E workflow
 
 on:
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -18,8 +16,8 @@ jobs:
           docker run -d -p 8080:8080 -e API_URL=http://localhost:3001 jaimesalas/hangman-front
       - name: Install dependencies
         run: npm ci
-        working-directory: ./hangman-e2e/e2e
+        working-directory: ./code/hangman-e2e/e2e
       - name: Execute e2e tests
         uses: cypress-io/github-action@v7
         with:
-          working-directory: ./hangman-e2e/e2e
+          working-directory: ./code/hangman-e2e/e2e
