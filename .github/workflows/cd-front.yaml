@@ -23,5 +23,5 @@ jobs:
         with:
           context: ./code/hangman-front
           push: true
-          tags: ghcr.io/SergioSanchezMartin/hangman-front:latest
+          tags: ghcr.io/sergiosanchezmartin/hangman-front:latest
           file: ./code/hangman-front/Dockerfile
