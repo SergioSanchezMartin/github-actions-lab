@@ -367,6 +367,274 @@ Por último, se vuelve a la rama **`main`** en el entorno local y se ejecuta un 
 
 > **Nota: se usan las actions de Docker vistas en clase**
 
+En este ejercicio se trabajará directamente sobre la rama **`main`**.
+
+Para ello, dentro de la carpeta **`.github/workflows/`** se creará un nuevo fichero llamado **`cd-front.yaml`**. En este archivo se definirá el workflow encargado de construir y publicar la imagen Docker.
+
+---
+
+### Contenido del fichero `cd-front.yaml`
+
+#### Nombre del workflow
+
+Lo primero que se debe hacer es asignar un nombre al workflow. En este caso se utilizará el siguiente:
+
+**`CD-front`**
+
+```yaml
+name: CD-front
+```
+
+Este nombre será el que aparecerá posteriormente en la pestaña **Actions** del repositorio.
+
+---
+
+### Ejecución manual del workflow
+
+A continuación se debe configurar la sección **`on`**, donde se indican los eventos que provocan la ejecución del workflow.
+
+En este caso, el workflow no se lanzará automáticamente con un `push` o una `pull request`, sino que deberá ejecutarse manualmente. Para ello se utiliza el evento:
+
+```yaml
+name: CD-front
+
+on:
+  workflow_dispatch:
+```
+
+---
+
+### Definición del job principal
+
+Después de indicar cuándo se ejecutará el workflow, se deben definir los **jobs**.
+
+En este ejercicio solo se necesita un job, que será el encargado de construir la imagen Docker y publicarla en el registro de contenedores de GitHub.
+
+El job se llamará:
+
+**`buildAndPushImage`**
+
+---
+
+### Job `buildAndPushImage`
+
+Este job será el responsable de preparar el entorno, iniciar sesión en el registro de contenedores, construir la imagen y publicarla.
+
+Lo primero que se indica dentro del job es la máquina virtual donde se ejecutará. En este caso se utilizará la última versión disponible de Ubuntu:
+
+```yaml
+runs-on: ubuntu-latest
+```
+
+A continuación se definen los pasos dentro de la sección **`steps`**.
+
+---
+
+#### Paso 1: descargar el código del repositorio
+
+El primer paso consiste en recuperar el código fuente del repositorio para que el workflow pueda acceder a los ficheros del proyecto.
+
+Para ello se utiliza la acción oficial de GitHub:
+
+```yaml
+uses: actions/checkout@v6
+```
+
+Este paso se puede llamar **`Checkout`**.
+
+---
+
+#### Paso 2: iniciar sesión en GitHub Container Registry
+
+Una vez disponible el código del repositorio, el siguiente paso consiste en iniciar sesión en el **GitHub Container Registry**.
+
+Para ello se utiliza la action de Docker vista en clase:
+
+```yaml
+uses: docker/login-action@v4
+```
+
+Antes de configurar este paso, se puede consultar la documentación de la action **[Docker Login](https://github.com/marketplace/actions/docker-login#github-container-registry)** en el Marketplace de GitHub, concretamente en el apartado correspondiente a **GitHub Container Registry**.
+
+![Captura 4](./capturas/ejercicio02/{FC72D0F3-64DC-455E-ADB8-05D7547CC004}.png)
+
+Este paso se llamará:
+
+**`Login to GitHub Container Registry`**
+
+La action necesita varios parámetros dentro de la sección **`with`**:
+
+```yaml
+registry: ghcr.io
+username: ${{ github.actor }}
+password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+El significado de estos valores es el siguiente:
+
+- **`registry: ghcr.io`** indica que se va a iniciar sesión en el registro de contenedores de GitHub.
+- **`username: ${{ github.actor }}`** utiliza como usuario la cuenta que ejecuta el workflow.
+- **`password: ${{ secrets.GITHUB_TOKEN }}`** utiliza el token generado automáticamente por GitHub para autenticar la operación.
+
+El paso quedaría configurado así:
+
+```yaml
+- name: Login to GitHub Container Registry
+  uses: docker/login-action@v4
+  with:
+    registry: ghcr.io
+    username: ${{ github.actor }}
+    password: ${{ secrets.GITHUB_TOKEN }}
+```
+
+---
+
+### Permisos del workflow
+
+Para que el workflow pueda publicar imágenes en el **GitHub Container Registry**, es necesario comprobar los permisos del repositorio.
+
+Desde la documentación de la action **Docker Login** se indica que puede ser necesario habilitar permisos de lectura y escritura para GitHub Actions.
+
+Para configurarlo, se deben seguir estos pasos:
+
+1. Acceder a **Settings** dentro del repositorio.
+2. Entrar en el apartado **Actions**.
+3. Seleccionar la opción **General**.
+4. Buscar la sección **Workflow permissions**.
+5. Marcar la opción **Read and write permissions**.
+6. Guardar los cambios con el botón **Save**.
+
+La configuración quedaría como se muestra a continuación:
+
+![Captura 1](./capturas/ejercicio02/captura-00.png)
+
+---
+
+### Construcción y publicación de la imagen Docker
+
+Para los siguientes pasos se utilizará la action vista en clase para construir y publicar imágenes Docker:
+
+```yaml
+- name: Setup Docker Buildx
+  uses: docker/setup-buildx-action@v4
+```
+
+Esta action permite crear una imagen Docker a partir de un `Dockerfile` y, además, publicarla directamente en un registro de contenedores.
+
+La documentación del [Marketplace de GitHub](https://github.com/marketplace/actions/build-and-push-docker-images#path-context) muestra cómo utilizar esta action:
+
+---
+
+### Paso de build y push
+
+El último paso del workflow será el encargado de construir la imagen Docker y subirla al **GitHub Container Registry**.
+
+Para ello se deben configurar varios argumentos:
+
+```yaml
+- name: Build and push Docker Image
+  uses: docker/build-push-action@v7
+  with:
+    context: ./code/hangman-front
+    push: true
+    tags: ghcr.io/sergiosanchezmartin/hangman-front:latest
+    file: ./code/hangman-front/Dockerfile
+```
+
+Estos valores tienen el siguiente significado:
+
+- **`context: ./code/hangman-front`** indica que el contexto de construcción de la imagen será la carpeta del proyecto frontend.
+- **`push: true`** indica que, además de construir la imagen, también debe publicarse en el registro.
+- **`tags`** define el nombre completo de la imagen que se va a publicar.
+- **`file`** indica la ruta donde se encuentra el fichero **`Dockerfile`**.
+
+El nombre de la imagen debe comenzar por:
+
+```yaml
+ghcr.io
+```
+
+Después se indica el usuario o propietario del repositorio en GitHub, el nombre de la imagen y la etiqueta correspondiente.
+
+---
+
+### Resultado final del fichero `cd-front.yaml`
+
+Una vez configuradas todas las secciones anteriores, el fichero **`cd-front.yaml`** contendrá el workflow completo de despliegue continuo.
+
+El aspecto final del fichero sería similar al siguiente:
+
+```yaml
+name: CD-front
+
+on:
+  workflow_dispatch:
+
+jobs:
+  buildAndPushImage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build and push Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./code/hangman-front
+          push: true
+          tags: ghcr.io/sergiosanchezmartin/hangman-front:latest
+          file: ./code/hangman-front/Dockerfile
+```
+
+---
+
+### Ejecución manual del workflow
+
+Una vez creado el workflow, el siguiente paso consiste en probar que funciona correctamente.
+
+Para ejecutarlo manualmente, se deben seguir estos pasos:
+
+1. Hacer `push` de los cambios.
+2. Acceder a la pestaña **Actions** del repositorio.
+3. Seleccionar el workflow **Despliegue continuo**.
+4. Pulsar el botón **Run workflow**.
+5. Seleccionar la rama sobre la que se quiere ejecutar. En este caso, **`main`**.
+6. Pulsar de nuevo sobre **Run workflow** para iniciar la ejecución.
+
+![Captura 2](./capturas/ejercicio02/captura-01.png)
+
+Como el workflow se ha configurado con **`workflow_dispatch`**, GitHub permite lanzarlo manualmente desde esta pantalla.
+
+![Captura 3](./capturas/ejercicio02/captura-02.png)
+
+---
+
+### Comprobación de la ejecución
+
+Después de lanzar el workflow, GitHub Actions ejecutará todos los pasos definidos en el fichero **`cd-front.yaml`**.
+
+Si todo está correctamente configurado, los pasos finalizarán sin errores y el workflow aparecerá como ejecutado correctamente.
+
+![Captura 4](./capturas/ejercicio02/captura-07.png)
+
+---
+
+### Comprobación de la imagen publicada
+
+Para confirmar que la imagen se ha publicado correctamente, se debe acceder al perfil de GitHub y entrar en la pestaña **Packages**.
+
+En esta sección aparecerán los paquetes asociados a la cuenta o al repositorio. Si el workflow se ha ejecutado correctamente, la imagen Docker creada en el ejercicio aparecerá publicada en el **GitHub Container Registry**.
+
+![Captura 5](./capturas/ejercicio02/captura-08.png)
+
 ## 3. Workflow para ejecutar tests E2E (opcional)
 
 **El objetivo es crear un workflow que se lance de la manera que elijamos y ejecute los tests e2e que encontrarás en [este enlace](https://github.com/Lemoncode/bootcamp-devops-lemoncode/tree/master/03-cd/03-github-actions/.start-code/hangman-e2e/e2e). Se puede usar [Docker Compose](https://docs.docker.com/compose/gettingstarted/) o [Cypress action](https://github.com/cypress-io/github-action) para ejecutar los tests.**
