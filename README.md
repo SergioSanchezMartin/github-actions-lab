@@ -638,3 +638,244 @@ En esta sección aparecerán los paquetes asociados a la cuenta o al repositorio
 ## 3. Workflow para ejecutar tests E2E (opcional)
 
 **El objetivo es crear un workflow que se lance de la manera que elijamos y ejecute los tests e2e que encontrarás en [este enlace](https://github.com/Lemoncode/bootcamp-devops-lemoncode/tree/master/03-cd/03-github-actions/.start-code/hangman-e2e/e2e). Se puede usar [Docker Compose](https://docs.docker.com/compose/gettingstarted/) o [Cypress action](https://github.com/cypress-io/github-action) para ejecutar los tests.**
+
+En este ejercicio se trabajará directamente sobre la rama **`main`**.
+
+El objetivo es crear un nuevo **workflow de GitHub Actions** que ejecute los tests **end-to-end** del proyecto. Estos tests se encuentran en el proyecto **`hangman-e2e`**, disponible en el siguiente enlace:
+
+[Tests E2E de Hangman](https://github.com/Lemoncode/bootcamp-devops-lemoncode/tree/master/03-cd/03-github-actions/.start-code/hangman-e2e/e2e)
+
+Para ejecutar los tests se puede utilizar **Docker Compose** o la action oficial de **Cypress**. En este caso se utilizará **Cypress action**, ya que permite lanzar los tests E2E directamente desde el workflow.
+
+Antes de crear el workflow, es necesario copiar la carpeta **`hangman-e2e`** dentro de nuestro repositorio. Esta carpeta contiene el proyecto de pruebas E2E que se ejecutará contra la aplicación.
+
+A continuación, dentro de la carpeta **`.github/workflows/`**, se creará un nuevo fichero llamado **`e2e.yaml`**.
+
+---
+
+### Contenido del fichero `e2e.yaml`
+
+#### Nombre del workflow
+
+Lo primero que se debe indicar en el fichero es el nombre del workflow. En este caso se llamará:
+
+**`Cypress E2E workflow`**
+
+Este nombre será el que aparecerá en la pestaña **Actions** de GitHub.
+
+---
+
+#### Evento que lanza el workflow
+
+Después se configura la sección **`on`**, donde se define cuándo debe ejecutarse el workflow.
+
+Como en este ejercicio se ha elegido lanzarlo de forma manual, se utilizará el evento:
+
+```yaml
+workflow_dispatch:
+```
+
+Este evento permite ejecutar el workflow manualmente desde la interfaz de GitHub Actions.
+
+La configuración inicial quedaría así:
+
+```yaml
+name: Cypress E2E workflow
+
+on:
+  workflow_dispatch:
+```
+
+---
+
+### Definición del job
+
+Una vez indicado el evento de ejecución, se debe definir el bloque **`jobs`**.
+
+En este caso solo se necesita un job, que será el encargado de preparar el entorno y ejecutar los tests E2E.
+
+El job se llamará:
+
+**`e2eTests`**
+
+---
+
+### Job `e2eTests`
+
+Este job contendrá todos los pasos necesarios para ejecutar las pruebas end-to-end.
+
+En primer lugar, se indica la máquina virtual sobre la que se ejecutará el workflow. Se utilizará la última versión disponible de Ubuntu:
+
+```yaml
+runs-on: ubuntu-latest
+```
+
+A continuación se definen los pasos dentro de la sección **`steps`**.
+
+---
+
+#### Paso 1: recuperar el código del repositorio
+
+El primer paso consiste en descargar el contenido del repositorio dentro de la máquina virtual de GitHub Actions.
+
+Para ello se utiliza la action oficial:
+
+```yaml
+uses: actions/checkout@v6
+```
+
+Este paso se llamará **`Checkout`**.
+
+Su configuración quedaría de la siguiente forma:
+
+```yaml
+steps:
+  - name: Checkout
+    uses: actions/checkout@v6
+```
+
+---
+
+#### Paso 2: arrancar los contenedores necesarios
+
+Antes de ejecutar los tests E2E, es necesario que estén levantados los servicios contra los que se van a lanzar las pruebas.
+
+En este caso, se arrancarán los contenedores correspondientes a:
+
+- **`hangman-api`**
+- **`hangman-front`**
+
+Para ello se crea un paso llamado:
+
+**`Run needed containers`**
+
+En este paso se utilizará la palabra reservada **`run`** para indicar los comandos necesarios para iniciar los contenedores.
+
+El paso quedaría configurado así:
+
+```yaml
+- name: Run needed containers
+  run: |
+    docker run -d -p 3001:3000 jaimesalas/hangman-api
+    docker run -d -p 8080:8080 -e API_URL=http://localhost:3001 jaimesalas/hangman-front
+```
+
+---
+
+#### Paso 3: instalar las dependencias del proyecto E2E
+
+Una vez arrancados los contenedores necesarios, se deben instalar las dependencias del proyecto que contiene los tests.
+
+Este paso se llamará:
+
+**`Install dependencies`**
+
+Para instalar las dependencias se ejecutará el siguiente comando:
+
+```bash
+npm ci
+```
+
+Además, como las dependencias pertenecen al proyecto **`hangman-e2e`**, se debe indicar el directorio de trabajo mediante la propiedad **`working-directory`**.
+
+El paso quedaría de la siguiente manera:
+
+```yaml
+- name: Install dependencies
+  run: npm ci
+  working-directory: ./code/hangman-e2e/e2e
+```
+
+---
+
+#### Paso 4: ejecutar los tests E2E
+
+El último paso del job será ejecutar los tests end-to-end.
+
+Para ello se utilizará la action de Cypress:
+
+```yaml
+uses: cypress-io/github-action@v7
+```
+
+Esta action está preparada para ejecutar pruebas E2E dentro de un workflow de GitHub Actions.
+
+El paso se llamará:
+
+**`Execute e2e tests`**
+
+Además, se indicará el directorio de trabajo correspondiente al proyecto **`hangman-e2e`**, para que Cypress ejecute los tests desde la ubicación correcta.
+
+El paso quedaría como se muestra a continuación:
+
+```yaml
+- name: Execute e2e tests
+  uses: cypress-io/github-action@v7
+  with:
+    working-directory: ./code/hangman-e2e/e2e
+```
+
+---
+
+### Resultado final del fichero `e2e.yaml`
+
+Una vez definidos todos los apartados anteriores, el fichero **`e2e.yaml`** contendrá el workflow completo para ejecutar los tests E2E con Cypress.
+
+El aspecto final del fichero sería similar al siguiente:
+
+```yaml
+name: Cypress E2E workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2eTests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Run needed containers
+        run: |
+          docker run -d -p 3001:3000 jaimesalas/hangman-api
+          docker run -d -p 8080:8080 -e API_URL=http://localhost:3001 jaimesalas/hangman-front
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./code/hangman-e2e/e2e
+      - name: Execute e2e tests
+        uses: cypress-io/github-action@v7
+        with:
+          working-directory: ./code/hangman-e2e/e2e
+```
+
+---
+
+### Ejecución del workflow
+
+Una vez creado el workflow y subidos los cambios al repositorio, se debe comprobar que funciona correctamente.
+
+Para ejecutarlo manualmente, se siguen estos pasos:
+
+1. Hacer `push` del workflow.
+2. Acceder a la pestaña **Actions** del repositorio.
+3. Seleccionar el workflow **Cypress E2E workflow**.
+4. Pulsar el botón **Run workflow**.
+5. Seleccionar la rama sobre la que se quiere ejecutar. En este caso, **`main`**.
+6. Pulsar de nuevo el botón **Run workflow** para iniciar la ejecución.
+
+Como el workflow se ha configurado con **`workflow_dispatch`**, GitHub permite lanzarlo manualmente desde esta pantalla.
+
+![Captura 1](./capturas/ejercicio03/captura-04.png)
+
+---
+
+### Comprobación del resultado
+
+Después de ejecutar el workflow, GitHub Actions irá mostrando el estado de cada uno de los pasos definidos en el fichero **`e2e.yaml`**.
+
+Si la configuración es correcta, los contenedores necesarios se levantarán correctamente, se instalarán las dependencias del proyecto E2E y Cypress ejecutará los tests sin errores.
+
+Cuando todos los pasos finalizan correctamente, el workflow aparece como ejecutado satisfactoriamente.
+
+![Captura 2](./capturas/ejercicio03/captura-05.png)
